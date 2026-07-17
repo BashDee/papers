@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Paper.Room — MSC Seminar Papers</title>
+  <title>Paper.Room — MSC Academic Papers</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -129,6 +129,29 @@
       letter-spacing: 2px; color: var(--dim); margin-bottom: 32px;
     }
 
+    /* --- taxonomy (category grouping) --- */
+    .taxonomy { margin-bottom: 40px; }
+    .tax-header {
+      display: flex; align-items: baseline; gap: 16px;
+      padding: 12px 24px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: rgba(232, 255, 58, 0.02);
+    }
+    .tax-name {
+      font-family: 'Fraunces', serif; font-weight: 400;
+      font-size: 1.6rem; line-height: 1; color: var(--text);
+    }
+    .tax-badge {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      letter-spacing: 2px; color: var(--accent);
+    }
+    .tax-count {
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      letter-spacing: 2px; color: var(--dim);
+    }
+
     .row {
       border-top: 1px solid var(--border);
       border-left: 3px solid transparent;
@@ -136,6 +159,7 @@
       cursor: pointer;
       transition: background 240ms ease, padding 240ms ease, border-color 240ms ease;
     }
+    .tax-header + .row { border-top: none; }
     .row:hover { background: rgba(232, 255, 58, 0.03); }
     .row:hover .row-name, .row:hover .row-index { color: var(--accent); }
     .row.presenting {
@@ -168,6 +192,10 @@
       transition: color 240ms ease, font-size 240ms ease;
     }
     .row.presenting .row-name { font-size: 3rem; color: var(--accent); }
+    .row-owner-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      letter-spacing: 2px; color: var(--dim); margin-bottom: 8px;
+    }
     .row-members {
       font-family: 'JetBrains Mono', monospace; font-size: 11px;
       color: var(--dim); margin-top: 12px;
@@ -346,7 +374,7 @@
           <span id="hero-status-label">CONNECTED — READY FOR PROJECTOR</span>
         </div>
         <h1 class="hero-title">
-          Seminar papers,<br />
+          Academic papers,<br />
           <em>on the wall.</em>
         </h1>
         <p class="hero-lede">
@@ -356,7 +384,8 @@
       </div>
       <div class="hero-stats">
         <dl class="stats">
-          <div class="stat-row"><dt>GROUPS</dt><dd id="stat-groups">—</dd></div>
+          <div class="stat-row"><dt>CATEGORIES</dt><dd id="stat-groups">—</dd></div>
+          <div class="stat-row"><dt>UPLOADS</dt><dd id="stat-uploads">—</dd></div>
           <div class="stat-row"><dt>FILES</dt><dd id="stat-files">—</dd></div>
           <div class="stat-row"><dt>ACCEPTS</dt><dd>PDF · PPTX</dd></div>
           <div class="stat-row"><dt>MODE</dt><dd id="stat-mode">STANDBY</dd></div>
@@ -367,8 +396,8 @@
 
   <section class="container program">
     <div class="program-header">
-      <span>THE PROGRAM ↓</span>
-      <span>TAP A GROUP TO PROJECT</span>
+      <span>UPLOADS BY CATEGORY ↓</span>
+      <span>TAP AN UPLOAD TO PROJECT</span>
     </div>
     <div id="list"></div>
     <div class="rows-end"></div>
@@ -390,18 +419,19 @@
       </div>
       <div class="modal-body">
         <div class="field">
-          <label>GROUP NAME</label>
-          <input class="text big" id="in-group" list="existing-groups" placeholder="e.g. Epsilon" />
+          <label>OWNER'S NAME</label>
+          <input class="text big" id="in-owner" placeholder="e.g. Adaeze O." />
+          <div class="field-hint">whose upload is this? shown as the owner of this document.</div>
+        </div>
+        <div class="field">
+          <label>CATEGORY (TAXONOMY)</label>
+          <input class="text" id="in-group" list="existing-groups" placeholder="e.g. Machine Learning" />
           <datalist id="existing-groups"></datalist>
-          <div class="field-hint">existing group? type or pick the same name — files merge in.</div>
+          <div class="field-hint">the shelf this upload lives under — reuse a name to group it with others. each upload stays separate.</div>
         </div>
         <div class="field">
-          <label>TOPIC (OPTIONAL)</label>
+          <label>TOPIC</label>
           <input class="text" id="in-topic" placeholder="What's the paper about?" />
-        </div>
-        <div class="field">
-          <label>MEMBERS (OPTIONAL, COMMA-SEPARATED)</label>
-          <input class="text" id="in-members" placeholder="Adaeze O., Chinedu M." />
         </div>
         <div class="field">
           <label>FILES (PDF · PPTX)</label>
@@ -447,8 +477,10 @@
     }
 
     // ---- state ----
-    let groups = [];
-    let presentingSlug = null;
+    // categories = taxonomy. each holds separate individual uploads.
+    // shape: { slug, name, uploads: [ { uid, key, owner, topic, files:[{name,size,url}] } ] }
+    let categories = [];
+    let presentingUid = null;
     let query = '';
     let pendingFiles = [];
 
@@ -456,6 +488,7 @@
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const slugify = (s) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const prettify = (slug) => slug.replace(/-+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     const humanSize = (bytes) => {
       if (bytes == null) return '';
       if (bytes < 1024) return `${bytes} B`;
@@ -471,67 +504,111 @@
     };
 
     // ---- data loading ----
-    async function loadGroups() {
+    // helper: turn a list of storage items in an upload folder into file objects
+    function filesFromItems(prefix, items) {
+      return (items || [])
+        .filter((i) => i.name !== '_meta.json' && /\.(pdf|pptx)$/i.test(i.name))
+        .map((i) => {
+          const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(`${prefix}/${i.name}`);
+          return { name: i.name, size: i.metadata?.size ?? null, url: pub.publicUrl };
+        });
+    }
+
+    async function loadData() {
       if (!supabase) {
         // demo data so the UI is visible even before config
-        groups = [
-          { slug: 'alpha', name: 'Alpha', topic: 'Federated Learning for Privacy-Preserving Medical Imaging', members: ['Adaeze O.', 'Chinedu M.', 'Fatima B.'], files: [ { name: 'alpha_paper.pdf', size: 2400000, url: '#' }, { name: 'alpha_slides.pptx', size: 8100000, url: '#' } ] },
-          { slug: 'beta', name: 'Beta', topic: 'Graph Neural Networks in Fraud Detection', members: ['Ibrahim K.', 'Ngozi E.', 'Tunde A.'], files: [ { name: 'beta_seminar.pdf', size: 3100000, url: '#' } ] }
+        categories = [
+          {
+            slug: 'machine-learning', name: 'Machine Learning',
+            uploads: [
+              { uid: 'd1', key: 'machine-learning/adaeze-d1', owner: 'Adaeze O.', topic: 'Federated Learning for Privacy-Preserving Medical Imaging', files: [ { name: 'fed_learning_paper.pdf', size: 2400000, url: '#' }, { name: 'fed_learning_slides.pptx', size: 8100000, url: '#' } ] },
+              { uid: 'd2', key: 'machine-learning/chinedu-d2', owner: 'Chinedu M.', topic: 'Graph Neural Networks in Fraud Detection', files: [ { name: 'gnn_fraud.pdf', size: 3100000, url: '#' } ] },
+            ],
+          },
+          {
+            slug: 'security', name: 'Security',
+            uploads: [
+              { uid: 'd3', key: 'security/fatima-d3', owner: 'Fatima B.', topic: 'Side-Channel Attacks on Post-Quantum Cryptography', files: [ { name: 'sidechannel.pdf', size: 1900000, url: '#' } ] },
+            ],
+          },
         ];
         render();
         return;
       }
 
-      $('list').innerHTML = '<div class="loading">LOADING SEMINAR PAPERS…</div>';
+      $('list').innerHTML = '<div class="loading">LOADING ACADEMIC PAPERS…</div>';
 
       try {
-        // list top-level "folders" in the bucket
+        // level 1 — categories (taxonomy folders)
         const { data: root, error: rootErr } = await supabase.storage.from(BUCKET).list('', { limit: 1000 });
         if (rootErr) throw rootErr;
+        const catFolders = (root || []).filter((e) => e.id === null && e.name);
 
-        // folder entries have id === null in the Storage list response
-        const folders = (root || []).filter((e) => e.id === null && e.name);
+        const cats = await Promise.all(catFolders.map(async (cat) => {
+          const catSlug = cat.name;
 
-        const results = await Promise.all(folders.map(async (folder) => {
-          const slug = folder.name;
+          // level 2 — contents of the category
+          const { data: catContents } = await supabase.storage.from(BUCKET).list(catSlug, { limit: 1000 });
+          const entries = catContents || [];
 
-          // list contents of the folder
-          const { data: contents } = await supabase.storage.from(BUCKET).list(slug, { limit: 200 });
-          const items = contents || [];
+          // upload folders (id === null) are individual uploads
+          const uploadFolders = entries.filter((e) => e.id === null && e.name);
 
-          // fetch meta
-          let meta = { name: slug, topic: '—', members: [] };
-          const metaItem = items.find((i) => i.name === '_meta.json');
-          if (metaItem) {
-            try {
-              const { data: blob } = await supabase.storage.from(BUCKET).download(`${slug}/_meta.json`);
-              if (blob) meta = { ...meta, ...JSON.parse(await blob.text()) };
-            } catch (e) { /* leave defaults */ }
+          const uploads = await Promise.all(uploadFolders.map(async (up) => {
+            const key = `${catSlug}/${up.name}`;
+            const { data: upContents } = await supabase.storage.from(BUCKET).list(key, { limit: 200 });
+            const items = upContents || [];
+
+            let meta = { owner: up.name, topic: '—', category: '' };
+            if (items.find((i) => i.name === '_meta.json')) {
+              try {
+                const { data: blob } = await supabase.storage.from(BUCKET).download(`${key}/_meta.json`);
+                if (blob) meta = { ...meta, ...JSON.parse(await blob.text()) };
+              } catch (e) { /* keep defaults */ }
+            }
+
+            return {
+              uid: key,
+              key,
+              owner: meta.owner || up.name,
+              topic: meta.topic || '—',
+              catName: meta.category || '',
+              files: filesFromItems(key, items),
+            };
+          }));
+
+          // legacy fallback — files sitting directly in the category folder
+          const looseFiles = filesFromItems(catSlug, entries);
+          if (looseFiles.length) {
+            let legacyMeta = { owner: cat.name, topic: '—' };
+            if (entries.find((i) => i.name === '_meta.json')) {
+              try {
+                const { data: blob } = await supabase.storage.from(BUCKET).download(`${catSlug}/_meta.json`);
+                if (blob) {
+                  const m = JSON.parse(await blob.text());
+                  legacyMeta.owner = m.owner || (Array.isArray(m.members) && m.members.length ? m.members.join(', ') : m.name) || cat.name;
+                  legacyMeta.topic = m.topic || '—';
+                }
+              } catch (e) { /* keep defaults */ }
+            }
+            uploads.push({ uid: catSlug, key: catSlug, owner: legacyMeta.owner, topic: legacyMeta.topic, files: looseFiles });
           }
 
-          const files = items
-            .filter((i) => i.name !== '_meta.json' && /\.(pdf|pptx)$/i.test(i.name))
-            .map((i) => {
-              const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(`${slug}/${i.name}`);
-              return {
-                name: i.name,
-                size: i.metadata?.size ?? null,
-                url: pub.publicUrl,
-              };
-            });
+          const kept = uploads
+            .filter((u) => u.files.length > 0)
+            .sort((a, b) => a.owner.localeCompare(b.owner));
 
-          return {
-            slug,
-            name: meta.name || slug,
-            topic: meta.topic || '—',
-            members: Array.isArray(meta.members) ? meta.members : [],
-            files,
-          };
+          // display name: prefer a name stored in meta, else prettify the slug
+          const named = kept.find((u) => u.catName);
+          const name = named ? named.catName : prettify(catSlug);
+
+          return { slug: catSlug, name, uploads: kept };
         }));
 
-        // hide groups with no PDF/PPTX (partial uploads or metadata-only)
-        groups = results.filter((g) => g.files.length > 0)
-                        .sort((a, b) => a.name.localeCompare(b.name));
+        // hide empty categories, sort alphabetically
+        categories = cats
+          .filter((c) => c.uploads.length > 0)
+          .sort((a, b) => a.name.localeCompare(b.name));
         render();
       } catch (err) {
         console.error(err);
@@ -541,16 +618,29 @@
 
     // ---- rendering ----
     function render() {
-      const filtered = groups.filter((g) =>
-        !query ||
-        g.name.toLowerCase().includes(query) ||
-        g.topic.toLowerCase().includes(query)
-      );
+      const iconPdf = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
+      const iconPptx = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>';
 
-      $('stat-groups').textContent = String(groups.length).padStart(2, '0');
-      $('stat-files').textContent = String(groups.reduce((a, g) => a + g.files.length, 0)).padStart(2, '0');
+      // filter uploads within each category, drop categories with no matches
+      const filtered = categories
+        .map((c) => ({
+          ...c,
+          uploads: c.uploads.filter((u) =>
+            !query ||
+            c.name.toLowerCase().includes(query) ||
+            u.owner.toLowerCase().includes(query) ||
+            u.topic.toLowerCase().includes(query)
+          ),
+        }))
+        .filter((c) => c.uploads.length > 0);
+
+      const totalUploads = categories.reduce((a, c) => a + c.uploads.length, 0);
+      const totalFiles = categories.reduce((a, c) => a + c.uploads.reduce((b, u) => b + u.files.length, 0), 0);
+      $('stat-groups').textContent = String(categories.length).padStart(2, '0');
+      $('stat-uploads').textContent = String(totalUploads).padStart(2, '0');
+      $('stat-files').textContent = String(totalFiles).padStart(2, '0');
       const modeEl = $('stat-mode');
-      if (presentingSlug) { modeEl.textContent = 'PRESENTING'; modeEl.classList.add('presenting'); }
+      if (presentingUid) { modeEl.textContent = 'PRESENTING'; modeEl.classList.add('presenting'); }
       else { modeEl.textContent = 'STANDBY'; modeEl.classList.remove('presenting'); }
 
       const list = $('list');
@@ -559,62 +649,72 @@
           ? `<div class="empty">nothing matches "${esc(query)}" — try another word, or upload the first paper.</div>`
           : `<div class="empty">no papers uploaded yet. tap UPLOAD to be first.</div>`;
       } else {
-        list.innerHTML = filtered.map((g, i) => {
-          const isPresenting = presentingSlug === g.slug;
-          const iconPdf = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
-          const iconPptx = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>';
+        let n = 0;
+        list.innerHTML = filtered.map((c) => {
+          const rows = c.uploads.map((u) => {
+            n++;
+            const isPresenting = presentingUid === u.uid;
+            return `
+              <div class="row upload ${isPresenting ? 'presenting' : ''}" data-uid="${esc(u.uid)}">
+                <div class="row-grid">
+                  <div class="row-index-col">
+                    <div class="row-index">${String(n).padStart(2, '0')}</div>
+                  </div>
+                  <div class="row-name-col">
+                    <div class="row-owner-label">OWNER</div>
+                    <div class="row-name">${esc(u.owner)}</div>
+                  </div>
+                  <div class="row-topic-col">
+                    <div class="row-topic">${esc(u.topic)}</div>
+                  </div>
+                  <div class="row-files-col" onclick="event.stopPropagation()">
+                    ${u.files.map((f) => `
+                      <a class="file-chip" href="${esc(f.url)}" target="_blank" rel="noopener" download>
+                        ${/\.pdf$/i.test(f.name) ? iconPdf : iconPptx}
+                        ${esc(f.name)}
+                        ${f.size ? `<span class="size">· ${humanSize(f.size)}</span>` : ''}
+                      </a>
+                    `).join('')}
+                  </div>
+                </div>
+                ${isPresenting ? `
+                  <div class="presenting-banner">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"></path><circle cx="12" cy="12" r="2"></circle><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"></path><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"></path></svg>
+                    NOW ON THE PROJECTOR
+                  </div>` : ''}
+              </div>`;
+          }).join('');
 
           return `
-            <div class="row ${isPresenting ? 'presenting' : ''}" data-slug="${esc(g.slug)}">
-              <div class="row-grid">
-                <div class="row-index-col">
-                  <div class="row-index">${String(i + 1).padStart(2, '0')}</div>
-                </div>
-                <div class="row-name-col">
-                  <div class="row-name">${esc(g.name)}</div>
-                  ${g.members.length ? `<div class="row-members">${esc(g.members.join(' · '))}</div>` : ''}
-                </div>
-                <div class="row-topic-col">
-                  <div class="row-topic">${esc(g.topic)}</div>
-                </div>
-                <div class="row-files-col" onclick="event.stopPropagation()">
-                  ${g.files.map((f) => `
-                    <a class="file-chip" href="${esc(f.url)}" target="_blank" rel="noopener">
-                      ${/\.pdf$/i.test(f.name) ? iconPdf : iconPptx}
-                      ${esc(f.name)}
-                      ${f.size ? `<span class="size">· ${humanSize(f.size)}</span>` : ''}
-                    </a>
-                  `).join('')}
-                </div>
+            <div class="taxonomy">
+              <div class="tax-header">
+                <span class="tax-badge">CATEGORY</span>
+                <span class="tax-name">${esc(c.name)}</span>
+                <span class="tax-count">${String(c.uploads.length).padStart(2, '0')} UPLOAD${c.uploads.length === 1 ? '' : 'S'}</span>
               </div>
-              ${isPresenting ? `
-                <div class="presenting-banner">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"></path><circle cx="12" cy="12" r="2"></circle><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"></path><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"></path></svg>
-                  NOW ON THE PROJECTOR
-                </div>` : ''}
-            </div>
-          `;
+              ${rows}
+            </div>`;
         }).join('');
       }
 
-      // attach row click handlers
-      list.querySelectorAll('.row').forEach((row) => {
+      // attach upload row click handlers (toggle projector)
+      list.querySelectorAll('.row.upload').forEach((row) => {
         row.addEventListener('click', () => {
-          const slug = row.dataset.slug;
-          presentingSlug = presentingSlug === slug ? null : slug;
+          const uid = row.dataset.uid;
+          presentingUid = presentingUid === uid ? null : uid;
           render();
         });
       });
 
-      // populate datalist
-      $('existing-groups').innerHTML = groups.map((g) => `<option value="${esc(g.name)}">`).join('');
+      // populate datalist with existing category names (taxonomy reuse)
+      $('existing-groups').innerHTML = categories.map((c) => `<option value="${esc(c.name)}">`).join('');
     }
 
     // ---- upload ----
     function openUpload() {
+      $('in-owner').value = '';
       $('in-group').value = '';
       $('in-topic').value = '';
-      $('in-members').value = '';
       pendingFiles = [];
       renderFilePreview();
       $('progress').classList.add('hidden');
@@ -655,16 +755,22 @@
     }
 
     async function submitUpload() {
-      const groupName = $('in-group').value.trim();
+      const owner = $('in-owner').value.trim();
+      const categoryName = $('in-group').value.trim();
       const topic = $('in-topic').value.trim();
-      const members = $('in-members').value.split(',').map((s) => s.trim()).filter(Boolean);
 
-      if (!groupName) { toast('Group name required.', 'error'); return; }
+      if (!owner) { toast("Owner's name required.", 'error'); return; }
+      if (!categoryName) { toast('Category required.', 'error'); return; }
       if (pendingFiles.length === 0) { toast('Pick at least one file.', 'error'); return; }
       if (!supabase) { toast('Supabase not configured. See index.html.', 'error'); return; }
 
-      const slug = slugify(groupName);
-      if (!slug) { toast('Group name has no usable characters.', 'error'); return; }
+      const catSlug = slugify(categoryName);
+      const ownerSlug = slugify(owner) || 'owner';
+      if (!catSlug) { toast('Category name has no usable characters.', 'error'); return; }
+
+      // unique key per upload — the same owner uploading again stays a SEPARATE row
+      const uid = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const uploadKey = `${catSlug}/${ownerSlug}-${uid}`;
 
       const btn = $('submit-upload');
       btn.disabled = true;
@@ -672,26 +778,19 @@
       const fill = $('progress-fill');
 
       try {
-        // fetch existing meta to merge
-        let existingMeta = null;
-        try {
-          const { data: blob } = await supabase.storage.from(BUCKET).download(`${slug}/_meta.json`);
-          if (blob) existingMeta = JSON.parse(await blob.text());
-        } catch { /* new group */ }
-
         const meta = {
-          name: existingMeta?.name || groupName,
-          topic: topic || existingMeta?.topic || '—',
-          members: Array.from(new Set([...(existingMeta?.members || []), ...members])),
+          owner,
+          topic: topic || '—',
+          category: categoryName,
           updatedAt: new Date().toISOString(),
         };
 
-        // upload files
+        // upload files into this upload's own folder
         const total = pendingFiles.length + 1;
         let done = 0;
         for (const f of pendingFiles) {
           const { error } = await supabase.storage.from(BUCKET).upload(
-            `${slug}/${f.name}`, f, { upsert: true, contentType: f.type || undefined }
+            `${uploadKey}/${f.name}`, f, { upsert: true, contentType: f.type || undefined }
           );
           if (error) throw error;
           done++;
@@ -701,14 +800,14 @@
         // upload meta
         const metaBlob = new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' });
         const { error: metaErr } = await supabase.storage.from(BUCKET).upload(
-          `${slug}/_meta.json`, metaBlob, { upsert: true, contentType: 'application/json' }
+          `${uploadKey}/_meta.json`, metaBlob, { upsert: true, contentType: 'application/json' }
         );
         if (metaErr) throw metaErr;
         fill.style.width = '100%';
 
-        toast(`Published to ${groupName}.`);
+        toast(`Published ${owner}'s upload to ${categoryName}.`);
         closeUpload();
-        await loadGroups();
+        await loadData();
       } catch (err) {
         console.error(err);
         toast(`Upload failed: ${err.message || err}`, 'error');
@@ -738,7 +837,7 @@
     });
 
     // ---- go ----
-    loadGroups();
+    loadData();
   </script>
 </body>
 </html>
