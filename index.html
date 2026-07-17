@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paper.Room — MSC Seminar Papers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,400&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* --- design tokens --- */
+    :root {
+      --bg: #0e1114;
+      --surface: #171b20;
+      --border: #2a3038;
+      --text: #f0ebe0;
+      --muted: #8b95a3;
+      --dim: #5a6371;
+      --accent: #e8ff3a;
+      --danger: #ff7a59;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+    input { font-family: inherit; }
+    a { color: inherit; text-decoration: none; }
+
+    .font-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+    /* --- header --- */
+    header.top {
+      position: sticky; top: 0; z-index: 20;
+      backdrop-filter: blur(12px);
+      background: rgba(14, 17, 20, 0.85);
+      border-bottom: 1px solid var(--border);
+    }
+    .top-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 0;
+    }
+    .brand { display: flex; align-items: baseline; gap: 16px; }
+    .brand-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 2px; color: var(--dim);
+    }
+    .brand-name {
+      font-family: 'Fraunces', serif; font-size: 26px; line-height: 1; font-weight: 400;
+    }
+    .brand-name .dot { color: var(--muted); }
+
+    .top-actions { display: flex; align-items: center; gap: 12px; }
+    .search {
+      display: none;
+      align-items: center; gap: 8px;
+      padding: 8px 12px;
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    @media (min-width: 768px) { .search { display: flex; } }
+    .search input {
+      background: transparent; border: none; outline: none;
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      color: var(--text); width: 200px;
+    }
+    .search svg { color: var(--dim); }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 16px;
+      background: var(--accent); color: var(--bg);
+      font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px;
+    }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* --- hero --- */
+    .hero { padding: 64px 0; border-bottom: 1px solid var(--border); }
+    .hero-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 32px; align-items: end; }
+    .hero-main { grid-column: 1 / -1; }
+    .hero-stats { grid-column: 1 / -1; }
+    @media (min-width: 768px) {
+      .hero-main { grid-column: 1 / span 8; }
+      .hero-stats { grid-column: 9 / -1; }
+    }
+
+    .hero-status {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px;
+      color: var(--muted); margin-bottom: 24px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .status-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent); animation: pulse-dot 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    h1.hero-title {
+      font-family: 'Fraunces', serif; font-weight: 300;
+      font-size: clamp(2.5rem, 6vw, 5rem);
+      line-height: 0.95; letter-spacing: -0.02em;
+    }
+    h1.hero-title em { font-style: italic; font-weight: 400; color: var(--accent); }
+    .hero-lede {
+      max-width: 520px; margin-top: 24px;
+      color: var(--muted); line-height: 1.55;
+    }
+
+    .stats { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+    .stat-row {
+      display: flex; justify-content: space-between;
+      padding-bottom: 8px; margin-bottom: 12px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .stat-row:last-child { border-bottom: none; margin-bottom: 0; }
+    .stat-row dt { color: var(--dim); }
+    .stat-row dd.presenting { color: var(--accent); }
+
+    /* --- program list --- */
+    .program { padding: 40px 0 80px; }
+    .program-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      letter-spacing: 2px; color: var(--dim); margin-bottom: 32px;
+    }
+
+    .row {
+      border-top: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      padding: 28px 24px;
+      cursor: pointer;
+      transition: background 240ms ease, padding 240ms ease, border-color 240ms ease;
+    }
+    .row:hover { background: rgba(232, 255, 58, 0.03); }
+    .row:hover .row-name, .row:hover .row-index { color: var(--accent); }
+    .row.presenting {
+      border-left-color: var(--accent);
+      background: rgba(232, 255, 58, 0.05);
+      padding: 40px 24px;
+    }
+    .rows-end { border-top: 1px solid var(--border); }
+
+    .row-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; align-items: start; }
+    .row-index-col { grid-column: span 1; }
+    .row-name-col { grid-column: span 11; }
+    .row-topic-col { grid-column: 1 / -1; }
+    .row-files-col { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+    @media (min-width: 768px) {
+      .row-name-col { grid-column: 2 / span 4; }
+      .row-topic-col { grid-column: 6 / span 4; }
+      .row-files-col { grid-column: 10 / -1; justify-content: flex-end; }
+    }
+
+    .row-index {
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      color: var(--dim); font-weight: 500;
+      transition: color 240ms ease;
+    }
+    .row-name {
+      font-family: 'Fraunces', serif; font-weight: 400;
+      font-size: 2.25rem; line-height: 1;
+      color: var(--text);
+      transition: color 240ms ease, font-size 240ms ease;
+    }
+    .row.presenting .row-name { font-size: 3rem; color: var(--accent); }
+    .row-members {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: var(--dim); margin-top: 12px;
+    }
+    .row-topic {
+      font-family: 'Fraunces', serif; font-style: italic;
+      color: var(--muted); font-size: 0.95rem; line-height: 1.5;
+      transition: font-size 240ms ease;
+    }
+    .row.presenting .row-topic { font-size: 1.05rem; }
+
+    .file-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: var(--muted);
+      transition: all 150ms ease;
+    }
+    .row.presenting .file-chip { font-size: 14px; padding: 10px 14px; }
+    .file-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .file-chip .size { color: var(--dim); margin-left: 4px; }
+
+    .presenting-banner {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      letter-spacing: 2px; color: var(--accent); margin-top: 32px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* --- empty / loading --- */
+    .empty {
+      padding: 96px 0; text-align: center;
+      font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--dim);
+    }
+    .loading {
+      padding: 96px 0; text-align: center;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px;
+      color: var(--dim);
+    }
+
+    /* --- footer --- */
+    footer {
+      padding: 40px 0; border-top: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim);
+      display: flex; justify-content: space-between;
+    }
+
+    /* --- modal --- */
+    .modal-scrim {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(14, 17, 20, 0.85);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .modal {
+      width: 100%; max-width: 520px;
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 24px; border-bottom: 1px solid var(--border);
+    }
+    .modal-title {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      letter-spacing: 2px; color: var(--muted);
+    }
+    .modal-close { color: var(--muted); display: flex; }
+    .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+    .modal-foot {
+      padding: 16px 24px; border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 12px;
+    }
+
+    .field label {
+      display: block;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      letter-spacing: 2px; color: var(--dim); margin-bottom: 8px;
+    }
+    .field input.text {
+      width: 100%; padding: 10px 12px;
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); outline: none;
+    }
+    .field input.text.big {
+      font-family: 'Fraunces', serif; font-size: 1.4rem; padding: 12px;
+    }
+    .field-hint {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      color: var(--dim); margin-top: 8px;
+    }
+
+    .drop {
+      padding: 24px; text-align: center;
+      background: var(--bg); border: 1px dashed var(--border);
+      cursor: pointer;
+    }
+    .drop .drop-hint {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: var(--muted); margin-top: 8px;
+    }
+    .drop svg { color: var(--dim); }
+
+    .file-preview {
+      margin-top: 12px; display: flex; flex-direction: column; gap: 4px;
+    }
+    .file-preview .item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 10px; background: var(--bg);
+      font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted);
+    }
+    .file-preview .item .rm { color: var(--dim); }
+
+    .btn-ghost {
+      padding: 10px 16px;
+      font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--muted);
+    }
+
+    /* --- config banner --- */
+    .banner {
+      background: rgba(255, 122, 89, 0.1);
+      border-bottom: 1px solid var(--danger);
+      padding: 12px 32px;
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: var(--danger); text-align: center;
+    }
+
+    /* --- toast --- */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 12px 20px;
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: var(--text); z-index: 100;
+      max-width: 90%;
+    }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+
+    .progress-bar {
+      height: 2px; background: var(--border); margin-top: 8px;
+      overflow: hidden;
+    }
+    .progress-bar .fill { height: 100%; background: var(--accent); width: 0%; transition: width 200ms ease; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="config-banner" class="banner hidden">
+    Supabase not configured yet — open <code>index.html</code> and fill in SUPABASE_URL and SUPABASE_ANON_KEY at the bottom of the file.
+  </div>
+
+  <header class="top">
+    <div class="container top-row">
+      <div class="brand">
+        <div class="brand-eyebrow">MSC / SEMINAR / 2026</div>
+        <div class="brand-name">Paper<span class="dot">.Room</span></div>
+      </div>
+      <div class="top-actions">
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          <input id="search" placeholder="find group or topic" />
+        </div>
+        <button class="btn-primary" id="open-upload">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>
+          UPLOAD
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="container hero">
+    <div class="hero-grid">
+      <div class="hero-main">
+        <div class="hero-status">
+          <span class="status-dot"></span>
+          <span id="hero-status-label">CONNECTED — READY FOR PROJECTOR</span>
+        </div>
+        <h1 class="hero-title">
+          Seminar papers,<br />
+          <em>on the wall.</em>
+        </h1>
+        <p class="hero-lede">
+          Every group's paper and slides, one link, one page.
+          Whoever is presenting opens their row — the projector shows the rest of the room what's up next.
+        </p>
+      </div>
+      <div class="hero-stats">
+        <dl class="stats">
+          <div class="stat-row"><dt>GROUPS</dt><dd id="stat-groups">—</dd></div>
+          <div class="stat-row"><dt>FILES</dt><dd id="stat-files">—</dd></div>
+          <div class="stat-row"><dt>ACCEPTS</dt><dd>PDF · PPTX</dd></div>
+          <div class="stat-row"><dt>MODE</dt><dd id="stat-mode">STANDBY</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="container program">
+    <div class="program-header">
+      <span>THE PROGRAM ↓</span>
+      <span>TAP A GROUP TO PROJECT</span>
+    </div>
+    <div id="list"></div>
+    <div class="rows-end"></div>
+  </section>
+
+  <footer class="container">
+    <div>PAPER.ROOM — STATIC SITE + BUCKET</div>
+    <div>NO ACCOUNTS · TRUST YOUR CLASSMATES</div>
+  </footer>
+
+  <!-- Upload modal -->
+  <div id="upload-modal" class="modal-scrim hidden">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <div class="modal-title">NEW UPLOAD</div>
+        <button class="modal-close" id="close-upload">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>GROUP NAME</label>
+          <input class="text big" id="in-group" list="existing-groups" placeholder="e.g. Epsilon" />
+          <datalist id="existing-groups"></datalist>
+          <div class="field-hint">existing group? type or pick the same name — files merge in.</div>
+        </div>
+        <div class="field">
+          <label>TOPIC (OPTIONAL)</label>
+          <input class="text" id="in-topic" placeholder="What's the paper about?" />
+        </div>
+        <div class="field">
+          <label>MEMBERS (OPTIONAL, COMMA-SEPARATED)</label>
+          <input class="text" id="in-members" placeholder="Adaeze O., Chinedu M." />
+        </div>
+        <div class="field">
+          <label>FILES (PDF · PPTX)</label>
+          <div class="drop" id="drop">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>
+            <div class="drop-hint">drop files here or click to pick</div>
+            <input type="file" id="file-input" multiple accept=".pdf,.pptx" style="display: none" />
+          </div>
+          <div class="file-preview" id="file-preview"></div>
+          <div class="progress-bar hidden" id="progress"><div class="fill" id="progress-fill"></div></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-ghost" id="cancel-upload">CANCEL</button>
+        <button class="btn-primary" id="submit-upload">PUBLISH →</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // =========================================================
+    //  CONFIG — fill these in from your Supabase project settings
+    // =========================================================
+    const SUPABASE_URL = 'https://dltiosabmqpgxcxfyrtw.supabase.co';       // e.g. https://xxxxx.supabase.co
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsdGlvc2FibXFwZ3hjeGZ5cnR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyOTIzMjMsImV4cCI6MjA5OTg2ODMyM30.tdvZ0gkILNAyLDXpjnZXFzu2G4YOIQ0OH9XvyHzxL0o';
+    const BUCKET = 'papers';
+    const MAX_FILE_MB = 50; // adjust if you raise the bucket limit in Supabase
+
+    // =========================================================
+
+    const configured =
+      SUPABASE_URL !== 'YOUR_SUPABASE_URL' &&
+      SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY' &&
+      SUPABASE_URL && SUPABASE_ANON_KEY;
+
+    let supabase = null;
+    if (configured) {
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } else {
+      document.getElementById('config-banner').classList.remove('hidden');
+      document.getElementById('hero-status-label').textContent = 'NOT CONFIGURED — SEE index.html';
+    }
+
+    // ---- state ----
+    let groups = [];
+    let presentingSlug = null;
+    let query = '';
+    let pendingFiles = [];
+
+    // ---- helpers ----
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const slugify = (s) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const humanSize = (bytes) => {
+      if (bytes == null) return '';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+    const toast = (msg, kind = '') => {
+      const t = document.createElement('div');
+      t.className = 'toast ' + kind;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    };
+
+    // ---- data loading ----
+    async function loadGroups() {
+      if (!supabase) {
+        // demo data so the UI is visible even before config
+        groups = [
+          { slug: 'alpha', name: 'Alpha', topic: 'Federated Learning for Privacy-Preserving Medical Imaging', members: ['Adaeze O.', 'Chinedu M.', 'Fatima B.'], files: [ { name: 'alpha_paper.pdf', size: 2400000, url: '#' }, { name: 'alpha_slides.pptx', size: 8100000, url: '#' } ] },
+          { slug: 'beta', name: 'Beta', topic: 'Graph Neural Networks in Fraud Detection', members: ['Ibrahim K.', 'Ngozi E.', 'Tunde A.'], files: [ { name: 'beta_seminar.pdf', size: 3100000, url: '#' } ] }
+        ];
+        render();
+        return;
+      }
+
+      $('list').innerHTML = '<div class="loading">LOADING SEMINAR PAPERS…</div>';
+
+      try {
+        // list top-level "folders" in the bucket
+        const { data: root, error: rootErr } = await supabase.storage.from(BUCKET).list('', { limit: 1000 });
+        if (rootErr) throw rootErr;
+
+        // folder entries have id === null in the Storage list response
+        const folders = (root || []).filter((e) => e.id === null && e.name);
+
+        const results = await Promise.all(folders.map(async (folder) => {
+          const slug = folder.name;
+
+          // list contents of the folder
+          const { data: contents } = await supabase.storage.from(BUCKET).list(slug, { limit: 200 });
+          const items = contents || [];
+
+          // fetch meta
+          let meta = { name: slug, topic: '—', members: [] };
+          const metaItem = items.find((i) => i.name === '_meta.json');
+          if (metaItem) {
+            try {
+              const { data: blob } = await supabase.storage.from(BUCKET).download(`${slug}/_meta.json`);
+              if (blob) meta = { ...meta, ...JSON.parse(await blob.text()) };
+            } catch (e) { /* leave defaults */ }
+          }
+
+          const files = items
+            .filter((i) => i.name !== '_meta.json' && /\.(pdf|pptx)$/i.test(i.name))
+            .map((i) => {
+              const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(`${slug}/${i.name}`);
+              return {
+                name: i.name,
+                size: i.metadata?.size ?? null,
+                url: pub.publicUrl,
+              };
+            });
+
+          return {
+            slug,
+            name: meta.name || slug,
+            topic: meta.topic || '—',
+            members: Array.isArray(meta.members) ? meta.members : [],
+            files,
+          };
+        }));
+
+        // hide groups with no PDF/PPTX (partial uploads or metadata-only)
+        groups = results.filter((g) => g.files.length > 0)
+                        .sort((a, b) => a.name.localeCompare(b.name));
+        render();
+      } catch (err) {
+        console.error(err);
+        $('list').innerHTML = `<div class="empty">Couldn't load the bucket. ${esc(err.message || '')}</div>`;
+      }
+    }
+
+    // ---- rendering ----
+    function render() {
+      const filtered = groups.filter((g) =>
+        !query ||
+        g.name.toLowerCase().includes(query) ||
+        g.topic.toLowerCase().includes(query)
+      );
+
+      $('stat-groups').textContent = String(groups.length).padStart(2, '0');
+      $('stat-files').textContent = String(groups.reduce((a, g) => a + g.files.length, 0)).padStart(2, '0');
+      const modeEl = $('stat-mode');
+      if (presentingSlug) { modeEl.textContent = 'PRESENTING'; modeEl.classList.add('presenting'); }
+      else { modeEl.textContent = 'STANDBY'; modeEl.classList.remove('presenting'); }
+
+      const list = $('list');
+      if (filtered.length === 0) {
+        list.innerHTML = query
+          ? `<div class="empty">nothing matches "${esc(query)}" — try another word, or upload the first paper.</div>`
+          : `<div class="empty">no papers uploaded yet. tap UPLOAD to be first.</div>`;
+      } else {
+        list.innerHTML = filtered.map((g, i) => {
+          const isPresenting = presentingSlug === g.slug;
+          const iconPdf = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>';
+          const iconPptx = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>';
+
+          return `
+            <div class="row ${isPresenting ? 'presenting' : ''}" data-slug="${esc(g.slug)}">
+              <div class="row-grid">
+                <div class="row-index-col">
+                  <div class="row-index">${String(i + 1).padStart(2, '0')}</div>
+                </div>
+                <div class="row-name-col">
+                  <div class="row-name">${esc(g.name)}</div>
+                  ${g.members.length ? `<div class="row-members">${esc(g.members.join(' · '))}</div>` : ''}
+                </div>
+                <div class="row-topic-col">
+                  <div class="row-topic">${esc(g.topic)}</div>
+                </div>
+                <div class="row-files-col" onclick="event.stopPropagation()">
+                  ${g.files.map((f) => `
+                    <a class="file-chip" href="${esc(f.url)}" target="_blank" rel="noopener">
+                      ${/\.pdf$/i.test(f.name) ? iconPdf : iconPptx}
+                      ${esc(f.name)}
+                      ${f.size ? `<span class="size">· ${humanSize(f.size)}</span>` : ''}
+                    </a>
+                  `).join('')}
+                </div>
+              </div>
+              ${isPresenting ? `
+                <div class="presenting-banner">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"></path><circle cx="12" cy="12" r="2"></circle><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"></path><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"></path></svg>
+                  NOW ON THE PROJECTOR
+                </div>` : ''}
+            </div>
+          `;
+        }).join('');
+      }
+
+      // attach row click handlers
+      list.querySelectorAll('.row').forEach((row) => {
+        row.addEventListener('click', () => {
+          const slug = row.dataset.slug;
+          presentingSlug = presentingSlug === slug ? null : slug;
+          render();
+        });
+      });
+
+      // populate datalist
+      $('existing-groups').innerHTML = groups.map((g) => `<option value="${esc(g.name)}">`).join('');
+    }
+
+    // ---- upload ----
+    function openUpload() {
+      $('in-group').value = '';
+      $('in-topic').value = '';
+      $('in-members').value = '';
+      pendingFiles = [];
+      renderFilePreview();
+      $('progress').classList.add('hidden');
+      $('upload-modal').classList.remove('hidden');
+    }
+    function closeUpload() { $('upload-modal').classList.add('hidden'); }
+
+    function handleFiles(list) {
+      const arr = Array.from(list);
+      const allowed = [];
+      let rejected = 0, oversize = 0;
+      for (const f of arr) {
+        const ok = /\.(pdf|pptx)$/i.test(f.name);
+        if (!ok) { rejected++; continue; }
+        if (f.size > MAX_FILE_MB * 1024 * 1024) { oversize++; continue; }
+        allowed.push(f);
+      }
+      if (rejected) toast(`${rejected} file(s) skipped — only PDF and PPTX allowed.`, 'error');
+      if (oversize) toast(`${oversize} file(s) over ${MAX_FILE_MB} MB.`, 'error');
+      pendingFiles.push(...allowed);
+      renderFilePreview();
+    }
+
+    function renderFilePreview() {
+      const el = $('file-preview');
+      el.innerHTML = pendingFiles.map((f, i) => `
+        <div class="item">
+          <span>${esc(f.name)} · ${humanSize(f.size)}</span>
+          <button class="rm" data-i="${i}">✕</button>
+        </div>
+      `).join('');
+      el.querySelectorAll('.rm').forEach((b) => {
+        b.addEventListener('click', () => {
+          pendingFiles.splice(Number(b.dataset.i), 1);
+          renderFilePreview();
+        });
+      });
+    }
+
+    async function submitUpload() {
+      const groupName = $('in-group').value.trim();
+      const topic = $('in-topic').value.trim();
+      const members = $('in-members').value.split(',').map((s) => s.trim()).filter(Boolean);
+
+      if (!groupName) { toast('Group name required.', 'error'); return; }
+      if (pendingFiles.length === 0) { toast('Pick at least one file.', 'error'); return; }
+      if (!supabase) { toast('Supabase not configured. See index.html.', 'error'); return; }
+
+      const slug = slugify(groupName);
+      if (!slug) { toast('Group name has no usable characters.', 'error'); return; }
+
+      const btn = $('submit-upload');
+      btn.disabled = true;
+      $('progress').classList.remove('hidden');
+      const fill = $('progress-fill');
+
+      try {
+        // fetch existing meta to merge
+        let existingMeta = null;
+        try {
+          const { data: blob } = await supabase.storage.from(BUCKET).download(`${slug}/_meta.json`);
+          if (blob) existingMeta = JSON.parse(await blob.text());
+        } catch { /* new group */ }
+
+        const meta = {
+          name: existingMeta?.name || groupName,
+          topic: topic || existingMeta?.topic || '—',
+          members: Array.from(new Set([...(existingMeta?.members || []), ...members])),
+          updatedAt: new Date().toISOString(),
+        };
+
+        // upload files
+        const total = pendingFiles.length + 1;
+        let done = 0;
+        for (const f of pendingFiles) {
+          const { error } = await supabase.storage.from(BUCKET).upload(
+            `${slug}/${f.name}`, f, { upsert: true, contentType: f.type || undefined }
+          );
+          if (error) throw error;
+          done++;
+          fill.style.width = `${(done / total) * 100}%`;
+        }
+
+        // upload meta
+        const metaBlob = new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' });
+        const { error: metaErr } = await supabase.storage.from(BUCKET).upload(
+          `${slug}/_meta.json`, metaBlob, { upsert: true, contentType: 'application/json' }
+        );
+        if (metaErr) throw metaErr;
+        fill.style.width = '100%';
+
+        toast(`Published to ${groupName}.`);
+        closeUpload();
+        await loadGroups();
+      } catch (err) {
+        console.error(err);
+        toast(`Upload failed: ${err.message || err}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ---- wire up ----
+    $('open-upload').addEventListener('click', openUpload);
+    $('close-upload').addEventListener('click', closeUpload);
+    $('cancel-upload').addEventListener('click', closeUpload);
+    $('submit-upload').addEventListener('click', submitUpload);
+    $('upload-modal').addEventListener('click', (e) => { if (e.target.id === 'upload-modal') closeUpload(); });
+    $('search').addEventListener('input', (e) => { query = e.target.value.toLowerCase(); render(); });
+
+    const drop = $('drop');
+    const fileInput = $('file-input');
+    drop.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.style.borderColor = 'var(--accent)'; });
+    drop.addEventListener('dragleave', () => { drop.style.borderColor = 'var(--border)'; });
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      drop.style.borderColor = 'var(--border)';
+      handleFiles(e.dataTransfer.files);
+    });
+
+    // ---- go ----
+    loadGroups();
+  </script>
+</body>
+</html>
